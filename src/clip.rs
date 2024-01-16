@@ -1,5 +1,6 @@
 use crate::utils::courier_bold;
 use owo_colors::OwoColorize;
+use spinoff::{spinners, Color, Spinner};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -33,7 +34,7 @@ fn cut_clip(
             drawtext=fontsize=30:
             fontcolor=#00ff37:
             fontfile='{}':
-            text='#{}':
+            text='Ex. {}':
             box=1:\
             boxcolor=Black@0.7:
             boxborderw=5:
@@ -44,61 +45,25 @@ fn cut_clip(
     );
     draw_command.push_str(&exhibit_label);
 
-    // Frames
-    draw_command.push_str(",");
-    let frame_number_draw = format!(
-        r"
-            drawtext=fontsize=20:
-            fontcolor=#00ff37:
-            fontfile='{}':
-            start_number=0:
-            box=1:
-            boxcolor=Black@0.7:
-            boxborderw=4:
-            text='#{} Frame\:%{{frame_num}}':
-            x=5:
-            y=(h-text_h-5)
-        ",
-        courier_bold, id_number
-    );
-
-    // If you want frame type: P, I, B
-    // text='#{} Frame\:%{{frame_num}} Pict Type\:%{{pict_type}}':
-
-    draw_command.push_str(&frame_number_draw);
-
     draw_command.push_str("[out]");
 
     let msg = format!("Encoding video file: {:?}", { source.file_name().unwrap() });
 
-    let spinner = spinoff::Spinner::new(spinners::Aesthetic, msg, Color::Yellow);
+    let mut spinner = Spinner::new(spinners::Aesthetic, msg, Color::Yellow);
+
+    let mut start_command = vec!["-i", input_str, "-c:a", "copy", "-c:v"];
+    let gpu_commands = vec!["hevc_nvenc", "-preset", "slow", "-tune", "hq"];
+    let _cpu_commands = vec!["libx265", "-crf", "26", "-preset", "slow"];
+    let visual_filters = vec!["-vf", &draw_command];
+    let output_command = vec!["-y", output_str];
+
+    start_command.extend(gpu_commands);
+    start_command.extend(visual_filters);
+    start_command.extend(output_command);
 
     let output = if cfg!(target_os = "windows") {
         Command::new("ffmpeg")
-            .args([
-                "-i",
-                input_str,
-                "-c:a",
-                "copy",
-                "-c:v",
-                "hevc_nvenc",
-                // "-crf",
-                // "26", //28  0-51
-                // HEVC NVENC settings
-                "-preset",
-                "slow",
-                "-tune",
-                "hq",
-                // "-profile:v",
-                // "main10",
-                //
-                "-vf",
-                &draw_command,
-                // "-r",           // set the frame rate to convert variable frame rates to constant
-                // avg_frame_rate, // should make the timecode display match the counter
-                "-y",
-                output_str,
-            ])
+            .args(start_command)
             .output()
             .expect("failed to execute process")
     } else {

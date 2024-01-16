@@ -1,8 +1,8 @@
+use crate::utils::courier_bold;
 use owo_colors::OwoColorize;
+use spinoff::{spinners, Color, Spinner};
 use std::path::PathBuf;
 use std::process::Command;
-
-use crate::utils::courier_bold;
 
 fn watermark_video(
     source: &PathBuf,
