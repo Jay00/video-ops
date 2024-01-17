@@ -7,7 +7,9 @@ use std::process::Command;
 fn cut_clip(
     source: &PathBuf,
     destination: &PathBuf,
-    id_number: usize,
+    label: &str,
+    start: &str,
+    stop: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Check source file is valid
     if !source.is_file() {
@@ -33,15 +35,14 @@ fn cut_clip(
         "\
             drawtext=fontsize=30:
             fontcolor=#00ff37:
-            fontfile='{}':
-            text='Ex. {}':
+            fontfile='{courier_bold}':
+            text='{label}':
             box=1:\
             boxcolor=Black@0.7:
             boxborderw=5:
             x=(w-text_w)/2:
             y=(5)
-    ",
-        courier_bold, id_number
+    "
     );
     draw_command.push_str(&exhibit_label);
 
@@ -51,12 +52,16 @@ fn cut_clip(
 
     let mut spinner = Spinner::new(spinners::Aesthetic, msg, Color::Yellow);
 
-    let mut start_command = vec!["-i", input_str, "-c:a", "copy", "-c:v"];
+    let mut start_command = vec!["-i", input_str];
+    let seek_command = vec!["-ss", start, "-to", stop];
+    let streams_command = vec!["-c:a", "copy", "-c:v"];
     let gpu_commands = vec!["hevc_nvenc", "-preset", "slow", "-tune", "hq"];
     let _cpu_commands = vec!["libx265", "-crf", "26", "-preset", "slow"];
     let visual_filters = vec!["-vf", &draw_command];
     let output_command = vec!["-y", output_str];
 
+    start_command.extend(seek_command);
+    start_command.extend(streams_command);
     start_command.extend(gpu_commands);
     start_command.extend(visual_filters);
     start_command.extend(output_command);
@@ -95,7 +100,10 @@ mod tests {
     fn test_draw() {
         let input_path = PathBuf::from(r".\testvideo\b.mp4");
         let output_path: PathBuf = PathBuf::from(r".\testvideo\out\b.mp4");
+        let label = "Ex. 192 A";
+        let start = "00:00:01";
+        let stop = "00:00:05";
 
-        let _ = cut_clip(&input_path, &output_path, 295);
+        let _ = cut_clip(&input_path, &output_path, label, start, stop);
     }
 }
