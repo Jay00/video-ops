@@ -1,15 +1,177 @@
-use crate::utils::courier_bold;
+use crate::utils::COURIER_BOLD;
 use owo_colors::OwoColorize;
+use serde::{Deserialize, Serialize};
+use serde_yaml::{Mapping, Value};
 use spinoff::{spinners, Color, Spinner};
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::str::FromStr;
 
-fn cut_clip(
+struct Job {
+    output_directory: PathBuf,
+    clips: Vec<Clip>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct Clip {
+    source: PathBuf,
+    label: String,
+    start: String,
+    stop: String,
+    remove_audio: bool,
+}
+
+pub fn run_job(yaml_file: &str) {
+    let job = read_yaml_file(yaml_file);
+
+    for clip in job.clips {
+        let filename = format!(
+            "{}.{}",
+            &clip.label,
+            &clip.source.extension().unwrap().to_str().unwrap()
+        );
+        let destination = job.output_directory.join(filename);
+
+        println!("Label: {}", clip.label);
+        println!("Destination Path: {:?}", destination.bright_purple());
+
+        let _ = cut_clip(
+            &clip.source,
+            &destination,
+            &clip.label,
+            &clip.start,
+            &clip.stop,
+            clip.remove_audio,
+        );
+    }
+}
+
+fn make_clip(map: &Mapping) -> Clip {
+    let mut source: PathBuf = PathBuf::new();
+    let mut label: String = String::new();
+    let mut start: String = String::new();
+    let mut stop: String = String::new();
+    let mut remove_audio: bool = false;
+
+    println!("{:?}", map);
+    for (k, v) in map {
+        let k = k.as_str().unwrap();
+        match k {
+            "label" => {
+                // Label
+                let x = v.as_str().expect("Label cannot be empty.");
+                label = String::from(x);
+            }
+            "source" => {
+                // Source
+                let x = v.as_str().expect("Source cannot be empty.");
+                source = PathBuf::from(x);
+
+                if !source.is_file() {
+                    eprintln!("File Note Found: {:?}", source.bright_red());
+                }
+            }
+            "start" => {
+                // Start
+                let x = v.as_str().expect("Start cannot be empty.");
+                start = String::from(x);
+            }
+            "stop" => {
+                // Stop
+                let x = v.as_str().expect("Stop cannot be empty.");
+                stop = String::from(x);
+            }
+            "remove_audio" => {
+                // Stop
+                let x = v
+                    .as_bool()
+                    .expect("Remove audio must be boolean true or false");
+                remove_audio = x;
+            }
+            _ => {
+                eprintln!("{} is not a recognized key.", k.bright_yellow())
+            }
+        }
+    }
+
+    Clip {
+        source,
+        label,
+        start,
+        stop,
+        remove_audio,
+    }
+}
+
+fn read_yaml_file(file: &str) -> Job {
+    let yaml = std::fs::read_to_string(file).unwrap();
+
+    println!("MAPPING TO YAML");
+
+    let de = serde_yaml::Deserializer::from_str(&yaml);
+    let value = Value::deserialize(de).unwrap();
+    // println!("{:?}", value);
+
+    let mut clips_vector: Vec<Clip> = vec![];
+    let mut output_directory: Option<PathBuf> = None;
+
+    match value {
+        Value::Mapping(map) => {
+            for (k, v) in map {
+                let k = k.as_str().unwrap();
+                match k {
+                    "output_directory" => {
+                        // Out
+                        let x = PathBuf::from_str(v.as_str().unwrap()).unwrap();
+                        if !x.is_dir() {
+                            let _ = fs::create_dir_all(&x);
+                        }
+                        output_directory = Some(x);
+                    }
+                    "clips" => {
+                        // Clips
+                        if let Some(clips) = v.as_sequence() {
+                            for clip in clips {
+                                let c = clip.as_mapping().unwrap();
+                                let x = make_clip(c);
+                                clips_vector.push(x);
+                            }
+                        }
+                    }
+                    _ => {
+                        eprintln!("{} is not a recognized key.", k.bright_yellow())
+                    }
+                }
+            }
+        }
+        _ => {
+            eprintln!("Should be map.")
+        }
+    }
+
+    println!("{} clips found.", clips_vector.len());
+    for clip in &clips_vector {
+        println!("{:?}", clip.blue());
+    }
+
+    if output_directory.is_none() {
+        panic!("Output directory must be set");
+    }
+
+    Job {
+        output_directory: output_directory.unwrap(),
+        clips: clips_vector,
+    }
+}
+
+pub fn cut_clip(
     source: &PathBuf,
     destination: &PathBuf,
     label: &str,
     start: &str,
     stop: &str,
+    remove_audio: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Check source file is valid
     if !source.is_file() {
@@ -33,38 +195,48 @@ fn cut_clip(
     //Exhibit Label
     let exhibit_label = format!(
         "\
-            drawtext=fontsize=30:
-            fontcolor=#00ff37:
-            fontfile='{courier_bold}':
+            drawtext=fontsize=(h/20):
+            fontcolor=#38b1fc:
+            fontfile='{COURIER_BOLD}':
             text='{label}':
             box=1:\
             boxcolor=Black@0.7:
             boxborderw=5:
             x=(w-text_w)/2:
-            y=(5)
+            y=(h-(text_h+5))
     "
     );
     draw_command.push_str(&exhibit_label);
 
     draw_command.push_str("[out]");
 
-    let msg = format!("Encoding video file: {:?}", { source.file_name().unwrap() });
+    let msg = format!("Encoding video clip: {:?}", {
+        destination.file_name().unwrap()
+    });
 
     let mut spinner = Spinner::new(spinners::Aesthetic, msg, Color::Yellow);
 
     let mut start_command = vec!["-i", input_str];
-    let seek_command = vec!["-ss", start, "-to", stop];
-    let streams_command = vec!["-c:a", "copy", "-c:v"];
-    let gpu_commands = vec!["hevc_nvenc", "-preset", "slow", "-tune", "hq"];
-    let _cpu_commands = vec!["libx265", "-crf", "26", "-preset", "slow"];
-    let visual_filters = vec!["-vf", &draw_command];
-    let output_command = vec!["-y", output_str];
+    let mut seek_command = vec!["-ss", start, "-to", stop];
 
-    start_command.extend(seek_command);
-    start_command.extend(streams_command);
-    start_command.extend(gpu_commands);
-    start_command.extend(visual_filters);
-    start_command.extend(output_command);
+    let mut audio_stream: Vec<&str>;
+    if remove_audio {
+        // NO AUDIO
+        audio_stream = vec!["-an"];
+    } else {
+        audio_stream = vec!["-c:a", "copy"];
+    }
+    // let mut gpu_commands = vec!["-c:v", "hevc_nvenc", "-preset", "slow", "-tune", "hq"];
+    // let mut _cpu_commands = vec!["-c:v","libx264", "-crf", "18", "-preset", "slow"];
+    let mut _cpu_commands = vec!["-c:v", "libx265", "-crf", "20", "-preset", "slow"];
+    let mut visual_filters = vec!["-vf", &draw_command];
+    let mut output_command = vec!["-y", output_str];
+
+    start_command.append(&mut seek_command);
+    start_command.append(&mut audio_stream);
+    start_command.append(&mut _cpu_commands);
+    start_command.append(&mut visual_filters);
+    start_command.append(&mut output_command);
 
     let output = if cfg!(target_os = "windows") {
         Command::new("ffmpeg")
@@ -97,13 +269,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_draw() {
-        let input_path = PathBuf::from(r".\testvideo\b.mp4");
-        let output_path: PathBuf = PathBuf::from(r".\testvideo\out\b.mp4");
+    fn test_cut() {
+        let input_path = PathBuf::from(r".\test\a.mp4");
+        let output_path: PathBuf = PathBuf::from(r".\test\output\a.mp4");
         let label = "Ex. 192 A";
-        let start = "00:00:01";
-        let stop = "00:00:05";
+        let start = "00:04:00";
+        let stop = "00:04:05.100";
 
-        let _ = cut_clip(&input_path, &output_path, label, start, stop);
+        let _ = cut_clip(&input_path, &output_path, label, start, stop, false);
+    }
+
+    #[test]
+    fn test_parse_yaml() {
+        let _ = run_job("./test/example.yaml");
     }
 }

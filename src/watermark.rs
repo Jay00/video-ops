@@ -1,4 +1,4 @@
-use crate::utils::courier_bold;
+use crate::utils::COURIER_BOLD;
 use owo_colors::OwoColorize;
 use spinoff::{spinners, Color, Spinner};
 use std::path::PathBuf;
@@ -41,7 +41,7 @@ fn watermark_video(
             x=(w-text_w)/2:
             y=(5)
     ",
-        courier_bold, id_number
+        COURIER_BOLD, id_number
     );
     draw_command.push_str(&id_number_draw);
 
@@ -60,7 +60,7 @@ fn watermark_video(
             x=(w-text_w)/2:
             y=(text_h+20)
         ",
-        courier_bold
+        COURIER_BOLD
     );
     draw_command.push_str(&frame_number_draw);
 
@@ -79,7 +79,7 @@ fn watermark_video(
             x=5:
             y=(h-text_h-5)
         ",
-        courier_bold, id_number
+        COURIER_BOLD, id_number
     );
 
     // If you want frame type: P, I, B
@@ -91,7 +91,7 @@ fn watermark_video(
 
     let msg = format!("Encoding video file: {:?}", { source.file_name().unwrap() });
 
-    let spinner = Spinner::new(spinners::Aesthetic, msg, Color::Yellow);
+    let mut spinner = Spinner::new(spinners::Aesthetic, msg, Color::Yellow);
 
     let output = if cfg!(target_os = "windows") {
         Command::new("ffmpeg")

@@ -7,4 +7,8 @@ edition = "2021"
 
 [dependencies]
 owo-colors = "4.0.0"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_yaml = "0.9.30"
 spinoff = "0.8.0"
+clap = { version = "4.1.6", features = ["derive"] }
+clap_derive = "4.1.0"
