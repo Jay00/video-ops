@@ -1,25 +1,48 @@
 # Comment: This is a YAML file used to list the exhibits you wish to create.
 # Describe Clips that you want to cut, with the start and end times.
 
+# output_directory: REQUIRED (path to the directory where clips should be saved to)
+# clips:
+#   - label: REQUIRED "Ex. 14A" (This will become the file name)
+#     source: REQUIRED "./test/a.mp4"
+#     start: REQUIRED "00:00:00.000" TIMESTAMP
+#     stop: REQUIRED "00:00:05.100" TIMESTAMP (*Recomended that you add 100 milliseconds to capture last frame of intended clip)
+#     remove_audio: OPTIONAL (true or *false)
+#     label_postion: OPTIONAL (*bottom_middle, bottom_left, bottom_right, top_left, top_middle, top_right)
+#     label_display: OPTIONAL (*true or false) Mark false to remove the label
+
 # Time Stamps: Note that you can use two different time unit formats: sexagesimal (HOURS:MM:SS.MILLISECONDS, as in 01:23:45.678),
 # or in seconds. If a fraction is used, such as 02:30.05, this is interpreted as "5 100ths of a second", not as frame 5.
 # For instance, 02:30.5 would be 2 minutes, 30 seconds, and a half a second, which would be the same as using 150.5 in seconds.
 ---
 output_directory: "./test/exhibits"
-case_number: "2020 CF1 123123"
+label_font_color: "#32b1ac" # default color (light blue)
 clips:
   - label: "Ex. 12A" # The exhibit label
     source: "./test/a.mp4" # The path to the source file
     start: "00:00:00.000"
     stop: "00:00:05.100"
 
-  - label: "Ex. 12C"
-    source: "./test/a.mp4"
-    start: "00:00:00.000"
-    stop: "00:00:05.100"
-
-  - label: "Ex. 14A"
+  - label: "top_middle"
     source: "./test/a.mp4"
     start: "00:00:00.000"
     stop: "00:00:05.100"
     remove_audio: true
+    label_position: top_middle # bottom_middle, bottom_left, bottom_right, top_left, top_middle, top_right,
+    label_font_color: "#fcba03"
+
+  - label: "bottom_left"
+    source: "./test/a.mp4"
+    start: "00:00:00.000"
+    stop: "00:00:05.100"
+    remove_audio: true
+    label_position: bottom_left # bottom_middle, bottom_left, bottom_right, top_left, top_middle, top_right,
+    label_font_color: "#fcba03"
+
+  - label: "bottom_right"
+    source: "./test/a.mp4"
+    start: "00:00:00.000"
+    stop: "00:00:05.100"
+    remove_audio: true
+    label_position: bottom_right # bottom_middle, bottom_left, bottom_right, top_left, top_middle, top_right,
+

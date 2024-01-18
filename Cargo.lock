@@ -91,6 +91,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
+name = "clippy"
+version = "0.1.2"
+dependencies = [
+ "clap",
+ "clap_derive",
+ "owo-colors",
+ "serde",
+ "serde_yaml",
+ "spinoff",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -266,18 +278,6 @@ name = "utf8parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
-
-[[package]]
-name = "video-ops"
-version = "0.1.0"
-dependencies = [
- "clap",
- "clap_derive",
- "owo-colors",
- "serde",
- "serde_yaml",
- "spinoff",
-]
 
 [[package]]
 name = "windows-sys"

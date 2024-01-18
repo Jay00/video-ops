@@ -3,12 +3,16 @@ mod utils;
 mod watermark;
 
 use clap::{Parser, Subcommand};
-use clip::{cut_clip, run_job};
+use clip::{ffmpeg_is_on_path, run_job};
 use owo_colors::OwoColorize;
-use std::{io::Write, path::PathBuf};
+use std::{io::Write, os::windows::process};
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(name = "clippy")]
+#[command(bin_name = "clippy")]
+#[command(author = "Jason K. Clark <jasonclarklaw.com>")]
+#[command(version)]
+#[command(about = "Clippy: An easy to use clip editor. Quickly create exhibit clips with labels from a simple yaml text file.\nCreated by Jason K. Clark", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -16,7 +20,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Run a job file. Optionally pass a filename for the YAML job file.
+    /// Run a job file to create clips.
     run {
         /// The YAML file. Defaults to exhibits.yaml if no filename is given.
         // #[arg(long)]
@@ -30,20 +34,35 @@ enum Commands {
         file: Option<String>,
     },
 }
+
 fn main() {
     let cli = Cli::parse();
     let default_job_file_name = "exhibits.yaml";
 
     match &cli.command {
         Commands::run { file } => {
+            if !ffmpeg_is_on_path() {
+                eprintln!(
+                    "{}",
+                    "FFmpeg not found! FFmpeg must be installed and available on PATH."
+                        .bright_red()
+                );
+
+                eprintln!(
+                    "{}",
+                    "You must install FFmpeg: https://ffmpeg.org/download.html".bright_yellow()
+                );
+                std::process::exit(1);
+            }
             let mut job_file = default_job_file_name;
 
             if let Some(f) = file {
                 job_file = f;
             }
-            println!("Running job file: {}", job_file);
+            println!("Running job file: {}", job_file.bright_cyan());
 
             run_job(job_file);
+            println!("Completed job file: {}", job_file.bright_cyan());
         }
         Commands::new { file } => {
             let mut job_file = default_job_file_name;

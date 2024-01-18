@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::{Mapping, Value};
 use spinoff::{spinners, Color, Spinner};
 use std::fs;
+use std::os::windows::process;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
@@ -33,10 +34,53 @@ struct Clip {
     remove_audio: bool,
     label_position: LabelPosition,
     label_display: bool,
+    label_font_color: String,
+}
+
+pub fn ffmpeg_is_on_path() -> bool {
+    let output = if cfg!(target_os = "windows") {
+        Command::new("ffmpeg")
+            .args(["-version"])
+            .output()
+            .expect("failed to execute process")
+    } else {
+        Command::new("ffmpeg")
+            .args(["-version"])
+            .output()
+            .expect("failed to execute process")
+    };
+
+    if output.status.success() {
+        // println!("Successfully labeled image!");
+        return true;
+    } else {
+        return false;
+    }
 }
 
 pub fn run_job(yaml_file: &str) {
-    let job = read_yaml_file(yaml_file);
+    let p = PathBuf::from_str(yaml_file).expect("problem with file name");
+    if !p.is_file() {
+        eprintln!(
+            "{}{} {}",
+            "YAML file not found: ".bright_red(),
+            yaml_file.bright_cyan(),
+            "Does not exist.".bright_red()
+        );
+        eprintln!(
+            "{}",
+            "Check the spelling of your YAML file. The default file is exhibits.yaml."
+                .bright_yellow()
+        );
+        eprintln!(
+            "{} {}",
+            "HINT: You can create a new Yaml file by typing:",
+            "clippy new".bright_green()
+        );
+        std::process::exit(1);
+    }
+
+    let job = read_yaml_file(&p);
 
     for clip in job.clips {
         let filename = format!(
@@ -46,8 +90,8 @@ pub fn run_job(yaml_file: &str) {
         );
         let destination = job.output_directory.join(filename);
 
-        println!("Label: {}", clip.label);
-        println!("Destination Path: {:?}", destination.bright_purple());
+        // println!("Label: {}", clip.label);
+        // println!("Destination Path: {:?}", destination.bright_purple());
 
         let _ = cut_clip(
             &clip.source,
@@ -58,11 +102,12 @@ pub fn run_job(yaml_file: &str) {
             clip.remove_audio,
             clip.label_position,
             clip.label_display,
+            &clip.label_font_color,
         );
     }
 }
 
-fn make_clip(map: &Mapping) -> Clip {
+fn make_clip(map: &Mapping, default_color: &str) -> Clip {
     let mut source: PathBuf = PathBuf::new();
     let mut label: String = String::new();
     let mut start: String = String::new();
@@ -70,6 +115,7 @@ fn make_clip(map: &Mapping) -> Clip {
     let mut remove_audio: bool = false;
     let mut label_position: LabelPosition = LabelPosition::BottomMiddle;
     let mut label_display: bool = true;
+    let mut label_font_color: String = default_color.to_string();
 
     // println!("{:?}", map);
     for (k, v) in map {
@@ -86,7 +132,7 @@ fn make_clip(map: &Mapping) -> Clip {
                 source = PathBuf::from(x);
 
                 if !source.is_file() {
-                    eprintln!("File Note Found: {:?}", source.bright_red());
+                    eprintln!("Source File Not Found: {:?}", source.bright_red());
                 }
             }
             "start" => {
@@ -134,6 +180,11 @@ fn make_clip(map: &Mapping) -> Clip {
                     .expect("Remove audio must be boolean true or false");
                 label_display = x;
             }
+            "label_font_color" => {
+                // Stop
+                let x = v.as_str().expect("font color cannot be empty.");
+                label_font_color = String::from(x);
+            }
             _ => {
                 eprintln!("{} is not a recognized key.", k.bright_red())
             }
@@ -148,13 +199,12 @@ fn make_clip(map: &Mapping) -> Clip {
         remove_audio,
         label_position,
         label_display,
+        label_font_color,
     }
 }
 
-fn read_yaml_file(file: &str) -> Job {
+fn read_yaml_file(file: &PathBuf) -> Job {
     let yaml = std::fs::read_to_string(file).unwrap();
-
-    println!("MAPPING TO YAML");
 
     let de = serde_yaml::Deserializer::from_str(&yaml);
     let value = Value::deserialize(de).unwrap();
@@ -162,6 +212,7 @@ fn read_yaml_file(file: &str) -> Job {
 
     let mut clips_vector: Vec<Clip> = vec![];
     let mut output_directory: Option<PathBuf> = None;
+    let mut label_font_color: String = String::from("#32b1ac");
 
     match value {
         Value::Mapping(map) => {
@@ -177,12 +228,18 @@ fn read_yaml_file(file: &str) -> Job {
                         }
                         output_directory = Some(x);
                     }
+                    "label_font_color" => {
+                        // Default font color
+                        let x = v.as_str().unwrap();
+
+                        label_font_color = x.to_string();
+                    }
                     "clips" => {
                         // Clips
                         if let Some(clips) = v.as_sequence() {
                             for clip in clips {
                                 let c = clip.as_mapping().unwrap();
-                                let x = make_clip(c);
+                                let x = make_clip(c, &label_font_color);
                                 clips_vector.push(x);
                             }
                         }
@@ -199,12 +256,12 @@ fn read_yaml_file(file: &str) -> Job {
     }
 
     println!("{} clips found.", clips_vector.len());
-    for clip in &clips_vector {
-        println!("{:?}", clip.blue());
-    }
+    // for clip in &clips_vector {
+    //     println!("{:?}", clip.blue());
+    // }
 
     if output_directory.is_none() {
-        panic!("Output directory must be set");
+        panic!("output_directory must be set");
     }
 
     Job {
@@ -222,11 +279,24 @@ pub fn cut_clip(
     remove_audio: bool,
     label_position: LabelPosition,
     label_display: bool,
+    label_font_color: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Check source file is valid
     if !source.is_file() {
         eprintln!("{}", "Source file is missing.".bright_red());
         panic!("Source file missing.");
+    }
+
+    if destination.is_file() {
+        println!(
+            "{} {} ({})",
+            "Destination file already exists. ".bright_yellow(),
+            destination.to_string_lossy().bright_cyan(),
+            "This file will be skipped. If you wish to have the file redone, delete the file from the output_directory."
+        );
+
+        // println!("This file will be skipped. If you wish to have the file re-created, delete the file from the output_directory.");
+        return Ok(());
     }
 
     let input_str: &str = source.to_str().expect("Failed to convert path to str.");
@@ -243,6 +313,7 @@ pub fn cut_clip(
     // TOP Center :x=(w-text_w):y=(text_h)
     let label_coordinates: String;
     let margin = 5;
+    let adjustment_factor = 5;
 
     match label_position {
         LabelPosition::BottomLeft => {
@@ -254,27 +325,70 @@ pub fn cut_clip(
         LabelPosition::BottomRight => {
             label_coordinates = format!("x=(w-(text_w+{margin})):y=(h-(text_h+{margin}))")
         }
-        LabelPosition::TopLeft => label_coordinates = format!("x=({margin}):y=({margin})"),
-        LabelPosition::TopMiddle => label_coordinates = format!("x=(w-text_w)/2:y=({margin})"),
+        LabelPosition::TopLeft => {
+            label_coordinates = format!("x=({margin}):y=({margin}+{adjustment_factor})")
+        }
+        LabelPosition::TopMiddle => {
+            label_coordinates = format!("x=(w-text_w)/2:y=({margin}+{adjustment_factor})")
+        }
         LabelPosition::TopRight => {
-            label_coordinates = format!("x=(w-(text_w+{margin})):y=({margin})")
+            label_coordinates = format!("x=(w-(text_w+{margin})):y=({margin}+{adjustment_factor})")
         }
     }
 
     //Exhibit Label
     let exhibit_label = format!(
         "\
-            drawtext=fontsize=(h/20):
-            fontcolor=#38b1fc:
+            drawtext=fontsize=(h/22):
+            fontcolor={label_font_color}:
             fontfile='{COURIER_BOLD}':
             text='{label}':
             box=1:\
             boxcolor=Black@0.7:
-            boxborderw=5:
+            boxborderw=3:
             {label_coordinates}
     "
     );
     draw_command.push_str(&exhibit_label);
+
+    // draw_command.push_str(",");
+    // // Hearing Label
+    // let hl = "Trial, US v. Smith";
+    // let hearing_label_coordinates: String;
+    // let height_of_main_label = 25;
+    // match label_position {
+    //     LabelPosition::BottomLeft => {
+    //         hearing_label_coordinates =
+    //             format!("x=({margin}):y=(h-(text_h+{margin}+{height_of_main_label}))")
+    //     }
+    //     LabelPosition::BottomMiddle => {
+    //         hearing_label_coordinates =
+    //             format!("x=(w-text_w)/2:y=(h-(text_h+{margin}+{height_of_main_label}))")
+    //     }
+    //     LabelPosition::BottomRight => {
+    //         hearing_label_coordinates =
+    //             format!("x=(w-(text_w+{margin})):y=(h-(text_h+{margin}+{height_of_main_label}))")
+    //     }
+    //     LabelPosition::TopLeft => hearing_label_coordinates = format!("x=({margin}):y=(1)"),
+    //     LabelPosition::TopMiddle => hearing_label_coordinates = format!("x=(w-text_w)/2:y=(1)"),
+    //     LabelPosition::TopRight => {
+    //         hearing_label_coordinates = format!("x=(w-(text_w+{margin})):y=(1)")
+    //     }
+    // }
+
+    // let hearing_label = format!(
+    //     "\
+    //         drawtext=fontsize=(h/70):
+    //         fontcolor={label_font_color}:
+    //         fontfile='{COURIER_BOLD}':
+    //         text='{hl}':
+    //         box=1:\
+    //         boxcolor=Black@0.7:
+    //         boxborderw=1:
+    //         {hearing_label_coordinates}
+    // "
+    // );
+    // draw_command.push_str(&hearing_label);
 
     draw_command.push_str("[out]");
 
@@ -324,7 +438,8 @@ pub fn cut_clip(
 
     if output.status.success() {
         // println!("Successfully labeled image!");
-        spinner.success("Encode completed!");
+        let msg = format!("{label} Completed!");
+        spinner.success(&msg);
         Ok(())
     } else {
         let e = String::from_utf8_lossy(&output.stderr).to_string();
@@ -356,6 +471,7 @@ mod tests {
             false,
             LabelPosition::BottomLeft,
             true,
+            "#38b1fc",
         );
     }
 
