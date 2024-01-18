@@ -172,6 +172,7 @@ fn read_yaml_file(file: &str) -> Job {
                         // Out
                         let x = PathBuf::from_str(v.as_str().unwrap()).unwrap();
                         if !x.is_dir() {
+                            // Create directory if it does not already exist
                             let _ = fs::create_dir_all(&x);
                         }
                         output_directory = Some(x);
@@ -187,7 +188,7 @@ fn read_yaml_file(file: &str) -> Job {
                         }
                     }
                     _ => {
-                        eprintln!("{} is not a recognized key.", k.bright_yellow())
+                        eprintln!("{} is not a recognized key.", k.bright_red())
                     }
                 }
             }
