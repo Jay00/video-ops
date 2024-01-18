@@ -1,5 +1,5 @@
 [package]
-name = "clippy"
+name = "clipper"
 version = "0.1.2"
 edition = "2021"
 

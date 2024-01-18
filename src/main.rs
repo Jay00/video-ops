@@ -5,14 +5,14 @@ mod watermark;
 use clap::{Parser, Subcommand};
 use clip::{ffmpeg_is_on_path, run_job};
 use owo_colors::OwoColorize;
-use std::{io::Write, os::windows::process};
+use std::io::Write;
 
 #[derive(Parser)]
-#[command(name = "clippy")]
-#[command(bin_name = "clippy")]
+#[command(name = "clipper")]
+#[command(bin_name = "clipper")]
 #[command(author = "Jason K. Clark <jasonclarklaw.com>")]
 #[command(version)]
-#[command(about = "Clippy: An easy to use clip editor. Quickly create exhibit clips with labels from a simple yaml text file.\nCreated by Jason K. Clark", long_about = None)]
+#[command(about = "\n\n** CLIPPER **\nAn easy to use clip maker.\nQuickly create exhibit clips with labels from a simple yaml text file.\nCreated by Jason K. Clark", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
