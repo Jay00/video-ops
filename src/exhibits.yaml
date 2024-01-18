@@ -1,5 +1,15 @@
-#Comment: Clips
-#Describe Clips that you want to cut
+# Comment: This is a YAML file used to list the exhibits you wish to create.
+# Describe Clips that you want to cut, with the start and end times.
+
+# output_directory: REQUIRED (path to the directory where clips should be saved to)
+# clips:
+#   - label: REQUIRED "Ex. 14A" *This will become the file name
+#     source: REQUIRED "./test/a.mp4"
+#     start: REQUIRED "00:00:00.000" TIMESTAMP
+#     stop: REQUIRED "00:00:05.100" TIMESTAMP (*Recomended that you add 100 milliseconds to capture last frame of intended clip)
+#     remove_audio: OPTIONAL (true or false)
+#     label_postion: OPTIONAL (bottom_middle, bottom_left, bottom_right, top_left, top_middle, top_right)
+#     label_display: OPTIONAL (true or false) Mark false to remove the label
 
 # Time Stamps: Note that you can use two different time unit formats: sexagesimal (HOURS:MM:SS.MILLISECONDS, as in 01:23:45.678),
 # or in seconds. If a fraction is used, such as 02:30.05, this is interpreted as "5 100ths of a second", not as frame 5.
@@ -8,14 +18,14 @@
 output_directory: "./test/exhibits"
 case_number: "2020 CF1 123123"
 clips:
-  - label: "Ex. 12A"
-    source: "./test/a.mp4"
-    start: "00:00:00.000" #first list item
+  - label: "Ex. 12A" # The exhibit label
+    source: "./test/a.mp4" # The path to the source file
+    start: "00:00:00.000"
     stop: "00:00:05.100"
 
   - label: "Ex. 12C"
     source: "./test/a.mp4"
-    start: "00:00:00.000" #first list item
+    start: "00:00:00.000"
     stop: "00:00:05.100"
 
   - label: "bottom_left"
@@ -31,27 +41,6 @@ clips:
     stop: "00:00:05.100"
     remove_audio: true
     label_position: bottom_right # bottom_middle, bottom_left, bottom_right, top_left, top_middle, top_right,
-
-  - label: "top_right"
-    source: "./test/a.mp4"
-    start: "00:00:00.000"
-    stop: "00:00:05.100"
-    remove_audio: true
-    label_position: top_right
-
-  - label: "top_middle"
-    source: "./test/a.mp4"
-    start: "00:00:00.000"
-    stop: "00:00:05.100"
-    remove_audio: true
-    label_position: top_middle
-
-  - label: "top_left"
-    source: "./test/a.mp4"
-    start: "00:00:00.000"
-    stop: "00:00:05.100"
-    remove_audio: true
-    label_position: top_left
 
   - label: "no_label"
     source: "./test/a.mp4"

@@ -4,6 +4,7 @@ mod watermark;
 
 use clap::{Parser, Subcommand};
 use clip::{cut_clip, run_job};
+use owo_colors::OwoColorize;
 use std::{io::Write, path::PathBuf};
 
 #[derive(Parser)]
@@ -15,56 +16,48 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Run a job file
+    /// Run a job file. Optionally pass a filename for the YAML job file.
     run {
-        /// The document id
-        #[arg(long)]
+        /// The YAML file. Defaults to exhibits.yaml if no filename is given.
+        // #[arg(long)]
         file: Option<String>,
     },
 
-    /// Make new job file
-    new {},
+    /// Create a new job file. Optionally pass a filename for the YAML file.
+    new {
+        /// The YAML file. Defaults to exhibits.yaml if no filename is given.
+        // #[arg(long)]
+        file: Option<String>,
+    },
 }
 fn main() {
-    println!("Hello, world!");
     let cli = Cli::parse();
+    let default_job_file_name = "exhibits.yaml";
 
     match &cli.command {
         Commands::run { file } => {
-            println!("Running job_file: {:?}", file);
+            let mut job_file = default_job_file_name;
+
+            if let Some(f) = file {
+                job_file = f;
+            }
+            println!("Running job file: {}", job_file);
+
+            run_job(job_file);
         }
-        Commands::new {} => {
-            println!("Making new file.");
+        Commands::new { file } => {
+            let mut job_file = default_job_file_name;
 
-            let mut file = std::fs::File::create("exhibits.yaml").unwrap();
+            if let Some(f) = file {
+                job_file = f;
+            }
 
-            let yaml = r#"#Comment: Clips
-#Describe Clips that you want to cut
+            let mut file = std::fs::File::create(job_file).unwrap();
 
-# Time Stamps: Note that you can use two different time unit formats: sexagesimal (HOURS:MM:SS.MILLISECONDS, as in 01:23:45.678),
-# or in seconds. If a fraction is used, such as 02:30.05, this is interpreted as "5 100ths of a second", not as frame 5.
-# For instance, 02:30.5 would be 2 minutes, 30 seconds, and a half a second, which would be the same as using 150.5 in seconds.
----
-output_directory: "./test/exhibits"
-case_number: "2020 CF1 123123"
-clips:
-  - label: "Ex. 12A"
-    source: "./test/a.mp4"
-    start: "00:00:00.000" #first list item
-    stop: "00:00:05.100"
+            let yaml_bytes = include_bytes!("exhibits.yaml");
 
-  - label: "Ex. 12C"
-    source: "./test/a.mp4"
-    start: "00:00:00.000" #first list item
-    stop: "00:00:05.100"
-
-  - label: "Ex. 14A"
-    source: "./test/a.mp4"
-    start: "00:00:00.000" #first list item
-    stop: "00:00:05.100"
-    remove_audio: true
-"#;
-            let _ = file.write_all(yaml.as_bytes());
+            let _ = file.write_all(yaml_bytes);
+            println!("New job file created: {}", job_file.bright_green());
         }
     }
 }

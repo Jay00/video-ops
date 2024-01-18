@@ -1,4 +1,5 @@
 use crate::utils::COURIER_BOLD;
+use clap::builder::Str;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_yaml::{Mapping, Value};
@@ -8,18 +9,30 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
 
+#[derive(Debug, PartialEq)]
+pub enum LabelPosition {
+    BottomLeft,
+    BottomMiddle,
+    BottomRight,
+    TopLeft,
+    TopMiddle,
+    TopRight,
+}
+
 struct Job {
     output_directory: PathBuf,
     clips: Vec<Clip>,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq)]
 struct Clip {
     source: PathBuf,
     label: String,
     start: String,
     stop: String,
     remove_audio: bool,
+    label_position: LabelPosition,
+    label_display: bool,
 }
 
 pub fn run_job(yaml_file: &str) {
@@ -43,6 +56,8 @@ pub fn run_job(yaml_file: &str) {
             &clip.start,
             &clip.stop,
             clip.remove_audio,
+            clip.label_position,
+            clip.label_display,
         );
     }
 }
@@ -53,8 +68,10 @@ fn make_clip(map: &Mapping) -> Clip {
     let mut start: String = String::new();
     let mut stop: String = String::new();
     let mut remove_audio: bool = false;
+    let mut label_position: LabelPosition = LabelPosition::BottomMiddle;
+    let mut label_display: bool = true;
 
-    println!("{:?}", map);
+    // println!("{:?}", map);
     for (k, v) in map {
         let k = k.as_str().unwrap();
         match k {
@@ -89,8 +106,36 @@ fn make_clip(map: &Mapping) -> Clip {
                     .expect("Remove audio must be boolean true or false");
                 remove_audio = x;
             }
+            "label_position" => {
+                // label position
+
+                let x = v.as_str().expect("Start cannot be empty.");
+                // println!("Label Position Key Found: {}", x.bright_red());
+                match x {
+                    "bottom_left" => label_position = LabelPosition::BottomLeft,
+                    "bottom_middle" => label_position = LabelPosition::BottomMiddle,
+                    "bottom_right" => label_position = LabelPosition::BottomRight,
+                    "top_left" => label_position = LabelPosition::TopLeft,
+                    "top_middle" => label_position = LabelPosition::TopMiddle,
+                    "top_right" => label_position = LabelPosition::TopRight,
+                    _ => {
+                        eprintln!(
+                            "{}: {}",
+                            "Received impermissible label position".bright_red(),
+                            x.bright_red()
+                        )
+                    }
+                }
+            }
+            "label_display" => {
+                // Stop
+                let x = v
+                    .as_bool()
+                    .expect("Remove audio must be boolean true or false");
+                label_display = x;
+            }
             _ => {
-                eprintln!("{} is not a recognized key.", k.bright_yellow())
+                eprintln!("{} is not a recognized key.", k.bright_red())
             }
         }
     }
@@ -101,6 +146,8 @@ fn make_clip(map: &Mapping) -> Clip {
         start,
         stop,
         remove_audio,
+        label_position,
+        label_display,
     }
 }
 
@@ -172,6 +219,8 @@ pub fn cut_clip(
     start: &str,
     stop: &str,
     remove_audio: bool,
+    label_position: LabelPosition,
+    label_display: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Check source file is valid
     if !source.is_file() {
@@ -191,6 +240,25 @@ pub fn cut_clip(
     // Center :x=(w-text_w)/2:y=(h-text_h)/2
     // Bottom Center :x=(w-text_w)/2:y=(h-text_h)
     // TOP Center :x=(w-text_w):y=(text_h)
+    let label_coordinates: String;
+    let margin = 5;
+
+    match label_position {
+        LabelPosition::BottomLeft => {
+            label_coordinates = format!("x=({margin}):y=(h-(text_h+{margin}))")
+        }
+        LabelPosition::BottomMiddle => {
+            label_coordinates = format!("x=(w-text_w)/2:y=(h-(text_h+{margin}))")
+        }
+        LabelPosition::BottomRight => {
+            label_coordinates = format!("x=(w-(text_w+{margin})):y=(h-(text_h+{margin}))")
+        }
+        LabelPosition::TopLeft => label_coordinates = format!("x=({margin}):y=({margin})"),
+        LabelPosition::TopMiddle => label_coordinates = format!("x=(w-text_w)/2:y=({margin})"),
+        LabelPosition::TopRight => {
+            label_coordinates = format!("x=(w-(text_w+{margin})):y=({margin})")
+        }
+    }
 
     //Exhibit Label
     let exhibit_label = format!(
@@ -202,8 +270,7 @@ pub fn cut_clip(
             box=1:\
             boxcolor=Black@0.7:
             boxborderw=5:
-            x=(w-text_w)/2:
-            y=(h-(text_h+5))
+            {label_coordinates}
     "
     );
     draw_command.push_str(&exhibit_label);
@@ -229,13 +296,16 @@ pub fn cut_clip(
     // let mut gpu_commands = vec!["-c:v", "hevc_nvenc", "-preset", "slow", "-tune", "hq"];
     // let mut _cpu_commands = vec!["-c:v","libx264", "-crf", "18", "-preset", "slow"];
     let mut _cpu_commands = vec!["-c:v", "libx265", "-crf", "20", "-preset", "slow"];
+
     let mut visual_filters = vec!["-vf", &draw_command];
     let mut output_command = vec!["-y", output_str];
 
     start_command.append(&mut seek_command);
     start_command.append(&mut audio_stream);
     start_command.append(&mut _cpu_commands);
-    start_command.append(&mut visual_filters);
+    if label_display {
+        start_command.append(&mut visual_filters);
+    }
     start_command.append(&mut output_command);
 
     let output = if cfg!(target_os = "windows") {
@@ -276,7 +346,16 @@ mod tests {
         let start = "00:04:00";
         let stop = "00:04:05.100";
 
-        let _ = cut_clip(&input_path, &output_path, label, start, stop, false);
+        let _ = cut_clip(
+            &input_path,
+            &output_path,
+            label,
+            start,
+            stop,
+            false,
+            LabelPosition::BottomLeft,
+            true,
+        );
     }
 
     #[test]
