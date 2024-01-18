@@ -75,7 +75,7 @@ pub fn run_job(yaml_file: &str) {
         eprintln!(
             "{} {}",
             "HINT: You can create a new Yaml file by typing:",
-            "clippy new".bright_green()
+            "clipper new".bright_green()
         );
         std::process::exit(1);
     }
