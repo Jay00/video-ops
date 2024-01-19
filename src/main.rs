@@ -20,16 +20,16 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Run a job file to create clips.
-    run {
-        /// The YAML file. Defaults to exhibits.yaml if no filename is given.
+    /// Run a job file to create clips. (optionally pass in job file - defaults to 'exhibits.yaml')
+    Run {
+        /// The yaml job filename. Defaults to 'exhibits.yaml' if no filename is given.
         // #[arg(long)]
         file: Option<String>,
     },
 
-    /// Create a new job file. Optionally pass a filename for the YAML file.
-    new {
-        /// The YAML file. Defaults to exhibits.yaml if no filename is given.
+    /// Create a new job file. (optionally pass in job file - defaults to 'exhibits.yaml')
+    New {
+        /// The yaml job filename. Defaults to 'exhibits.yaml' if no filename is given.
         // #[arg(long)]
         file: Option<String>,
     },
@@ -40,7 +40,7 @@ fn main() {
     let default_job_file_name = "exhibits.yaml";
 
     match &cli.command {
-        Commands::run { file } => {
+        Commands::Run { file } => {
             if !ffmpeg_is_on_path() {
                 eprintln!(
                     "{}",
@@ -64,7 +64,7 @@ fn main() {
             run_job(job_file);
             println!("Completed job file: {}", job_file.bright_cyan());
         }
-        Commands::new { file } => {
+        Commands::New { file } => {
             let mut job_file = default_job_file_name;
 
             if let Some(f) = file {
