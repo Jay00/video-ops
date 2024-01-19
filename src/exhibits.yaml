@@ -4,7 +4,7 @@
 # output_directory: REQUIRED (path to the directory where clips should be saved to)
 # label_font_color: "#32b1ac" # default font color for all labels in hex (light blue)
 # clips:
-#   - label: REQUIRED "Ex. 14A" (This will become the file name)
+#   - label: REQUIRED "Ex. 14A" (This will become the file name) This label will be in the file path. Do not use reserved characters. (NOT ALLOWED = <>:"/\|?*)
 #     source: REQUIRED "./test/a.mp4"
 #     start: REQUIRED "00:00:00.000" TIMESTAMP
 #     stop: REQUIRED "00:00:05.100" TIMESTAMP (*Recomended that you add 100 milliseconds to capture last frame of intended clip)
