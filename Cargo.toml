@@ -12,3 +12,4 @@ serde_yaml = "0.9.30"
 spinoff = "0.8.0"
 clap = { version = "4.1.6", features = ["derive"] }
 clap_derive = "4.1.0"
+regex = "1.10.2"
