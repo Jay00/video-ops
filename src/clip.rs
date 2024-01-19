@@ -1,6 +1,7 @@
 use crate::utils::COURIER_BOLD;
 use clap::builder::Str;
 use owo_colors::OwoColorize;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_yaml::{Mapping, Value};
 use spinoff::{spinners, Color, Spinner};
@@ -82,12 +83,26 @@ pub fn run_job(yaml_file: &str) {
 
     let job = read_yaml_file(&p);
 
+    // Find reserved characters not allowed in a filename/path
+    let re = Regex::new(r#"[<>:"/\|?*]"#).unwrap();
+
     for clip in job.clips {
-        let filename = format!(
+        let mut filename = format!(
             "{}.{}",
             &clip.label,
             &clip.source.extension().unwrap().to_str().unwrap()
         );
+
+        // Check for a reserved character in the filename.
+        if re.is_match(&filename) {
+            eprintln!(
+                "{}",
+                "The provided label contains a reserved character. Filename will be modified."
+                    .bright_yellow()
+            );
+            filename = re.replace_all(&filename, "-").to_string();
+        }
+
         let destination = job.output_directory.join(filename);
 
         // println!("Label: {}", clip.label);
@@ -124,6 +139,7 @@ fn make_clip(map: &Mapping, default_color: &str) -> Clip {
             "label" => {
                 // Label
                 let x = v.as_str().expect("Label cannot be empty.");
+
                 label = String::from(x);
             }
             "source" => {
